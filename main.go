@@ -1,15 +1,13 @@
 package main
 
 import (
-	"fmt"
-	"net"
+	"github.com/ChuanyuXue/udp-latency-go/src"
 )
 
 func main() {
-	c, err := net.Dial("udp4", "192.168.10.13:19981")
-	if err != nil {
-		fmt.Println("[!] UDP Error", err)
-	}
-	bs := make([]byte, 0)
-	_, err = c.Write(bs)
+	client := src.Client{}
+	client.Init("localhost", 1234, "localhost", 4321, "sw")
+	go client.Listen(1024, " ")
+	client.Send(1, 100, 10)
+
 }

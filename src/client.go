@@ -22,7 +22,6 @@ type Client struct {
 	LogTimestamp3 []uint64
 	LogTimestamp4 []uint64
 
-	Conn    *net.UDPConn
 	VlanTag bool
 
 	ClobalTime uint64
@@ -30,7 +29,15 @@ type Client struct {
 	Close chan bool
 }
 
-func (client *Client) send(frequency uint16, packetSize uint16, duration uint16, q chan bool) error {
+func (client *Client) Init(ipLocal string, portLocal int, ipRemote string, portRemote int, devName string) {
+	client.IPLocal = ipLocal
+	client.PortLocal = portLocal
+	client.IPRemote = ipRemote
+	client.PortRemote = portRemote
+	client.Close = make(chan bool, BUFFER_SIZE)
+}
+
+func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16) error {
 	var index uint32
 	var payloadSize uint16
 	var startTime uint64
@@ -41,12 +48,12 @@ func (client *Client) send(frequency uint16, packetSize uint16, duration uint16,
 	conn, err := net.Dial("udp4", client.IPRemote+":"+strconv.Itoa(client.PortRemote))
 	defer conn.Close()
 	if err != nil {
-		fmt.Println("[!] UDP Error: Failed to dial remote device.")
+		fmt.Println("[!] Client UDP Error: Failed to dial remote device.")
 		return errors.New("UDP error")
 	}
 
 	if packetSize < MIN_PKT_SIZE || packetSize > MAX_PKT_SIZE {
-		fmt.Printf("[!] Argument Error: Packet size %d is out of range.", packetSize)
+		fmt.Printf("[!] Client Argument Error: Packet size %d is out of range.", packetSize)
 		return errors.New("argument error")
 	}
 
@@ -70,8 +77,8 @@ func (client *Client) send(frequency uint16, packetSize uint16, duration uint16,
 		binary.LittleEndian.PutUint64(msg[4:12], currentTime) // T1
 		_, err = conn.Write(msg)
 		if err != nil {
-			fmt.Println("[!] UDP Error: Unable to send message")
-			return errors.New("UDP error")
+			fmt.Println("[!] Client UDP Error: Unable to send message")
+			return err
 		}
 		index += 1
 
@@ -81,20 +88,20 @@ func (client *Client) send(frequency uint16, packetSize uint16, duration uint16,
 		}
 	}
 
-	for len(q) == 0 {
+	for len(client.Close) == 0 {
 		msg = make([]byte, 4)
 		binary.LittleEndian.PutUint32(msg[:4], 0)
 		_, err := conn.Write(msg)
 		if err != nil {
-			fmt.Println("[!] UDP Error: Unable to send terminating message")
-			return errors.New("UDP error")
+			fmt.Println("[!] Client UDP Error: Unable to send terminating message")
+			return err
 		}
 	}
 
 	return nil
 }
 
-func (client *Client) listen(bufferSize uint16, savePath string, q chan bool) error {
+func (client *Client) Listen(bufferSize uint16, savePath string) error {
 	var index uint32
 	var currentTime uint64
 	var buf []byte
@@ -102,8 +109,8 @@ func (client *Client) listen(bufferSize uint16, savePath string, q chan bool) er
 	addr, _ := net.ResolveUDPAddr("udp", ":"+strconv.Itoa(client.PortLocal))
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		fmt.Println("[!] UDP Error: Failed to dial remote device.")
-		return errors.New("UDP error")
+		fmt.Println("[!] Client UDP Error: Failed to dial remote device.")
+		return err
 	}
 	defer conn.Close()
 
@@ -111,6 +118,7 @@ func (client *Client) listen(bufferSize uint16, savePath string, q chan bool) er
 		buf = make([]byte, bufferSize)
 		length, _, err := conn.ReadFromUDP(buf)
 		if err != nil {
+			fmt.Println("[!] Client UDP Error: Unable to read incoming message")
 			fmt.Println(err)
 		}
 		currentTime = getTime(client.DevName)
@@ -126,7 +134,7 @@ func (client *Client) listen(bufferSize uint16, savePath string, q chan bool) er
 		}
 	}
 
-	q <- true
+	client.Close <- true
 	return nil
 }
 
@@ -141,5 +149,9 @@ func (client *Client) log(index uint32, length uint16, t1 uint64, t2 uint64, t3 
 }
 
 func (client *Client) evaluate() error {
+	return nil
+}
+
+func (client *Client) save() error {
 	return nil
 }
