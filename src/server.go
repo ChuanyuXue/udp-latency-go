@@ -23,11 +23,13 @@ type Server struct {
 	TimeChan chan []byte
 }
 
-func (server *Server) Init(ipLocal string, portLocal int, ipRemote string, portRemote int, devName string) {
+func (server *Server) Init(ipLocal string, portLocal int, ipRemote string, portRemote int, devName string, vlan bool) {
 	server.IPLocal = ipLocal
 	server.PortLocal = portLocal
 	server.IPRemote = ipRemote
 	server.PortRemote = portRemote
+	server.DevName = devName
+	server.VlanTag = vlan
 	server.TimeChan = make(chan []byte, BUFFER_SIZE)
 }
 

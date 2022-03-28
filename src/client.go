@@ -29,12 +29,15 @@ type Client struct {
 	Close chan bool
 }
 
-func (client *Client) Init(ipLocal string, portLocal int, ipRemote string, portRemote int, devName string) {
+func (client *Client) Init(ipLocal string, portLocal int, ipRemote string, portRemote int, devName string, vlan bool) {
 	client.IPLocal = ipLocal
 	client.PortLocal = portLocal
 	client.IPRemote = ipRemote
 	client.PortRemote = portRemote
+	client.DevName = devName
+	client.VlanTag = vlan
 	client.Close = make(chan bool, BUFFER_SIZE)
+
 }
 
 func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16) error {
@@ -46,11 +49,11 @@ func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16)
 	var durationNano uint64
 	var period float64
 	conn, err := net.Dial("udp4", client.IPRemote+":"+strconv.Itoa(client.PortRemote))
-	defer conn.Close()
 	if err != nil {
 		fmt.Println("[!] Client UDP Error: Failed to dial remote device.")
 		return errors.New("UDP error")
 	}
+	defer conn.Close()
 
 	if packetSize < MIN_PKT_SIZE || packetSize > MAX_PKT_SIZE {
 		fmt.Printf("[!] Client Argument Error: Packet size %d is out of range.", packetSize)
@@ -60,7 +63,7 @@ func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16)
 	if client.VlanTag {
 		payloadSize = packetSize - HEADER_SIZE
 	} else {
-		packetSize = packetSize - HEADER_UNTAG_SIZE
+		payloadSize = packetSize - HEADER_UNTAG_SIZE
 	}
 
 	index = 1
