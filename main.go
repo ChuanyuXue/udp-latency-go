@@ -7,28 +7,53 @@ import (
 	"github.com/ChuanyuXue/udp-latency-go/src"
 )
 
+var ipLocal string
+var ipRemote string
+var portLocal int
+var portRemote int
+
+var vlanTag bool
+
 var argType string
+var argClock string
 var argSavePath string
+var argFrequency uint64
+var argPktSize uint64
+var argDuration uint64
+var argOffset uint64
 
 func init() {
-	flag.StringVar(&argType, "type", "c", "c -> client, s -> server")
+
+	flag.StringVar(&ipRemote, "ip", "localhost", "Remote ip")
+	flag.IntVar(&portLocal, "lp", 12345, "Local port")
+	flag.IntVar(&portRemote, "rp", 12345, "Remote port")
+	flag.StringVar(&argType, "type", "c", "Agent type: c -> client, s -> server")
+	flag.Uint64Var(&argFrequency, "f", 1, "The frequency in Hz")
+	flag.Uint64Var(&argPktSize, "n", 100, "The packet size in byte")
+	flag.Uint64Var(&argDuration, "t", 10, "The duration in seconds")
+	flag.Uint64Var(&argOffset, "o", 0, "The start time of traffic")
+
+	flag.BoolVar(&vlanTag, "vlan", false, "Vlan tag")
+	flag.StringVar(&argClock, "clock", "sw", "Clock type: sw -> Linux kernel time, sw0p* -> PTP transparent clock")
 	flag.StringVar(&argSavePath, "save", "test.csv", "The path you save the log file")
+
 	flag.Parse()
 }
 
 func main() {
 	if argType == "c" {
 		client := src.Client{}
-		client.Init("localhost", 12345, "localhost", 54321, "sw", false)
-		go client.Listen(1024, argSavePath)
-		client.Send(1, 100, 10)
+		client.Init("localhost", portLocal, ipRemote, portRemote, argClock, vlanTag)
+		go client.Listen(argSavePath)
+		client.Send(uint16(argFrequency), uint16(argPktSize), uint16(argDuration), argOffset)
+		client.Save(argSavePath)
 	}
 
 	if argType == "s" {
 		fmt.Println("start server")
 		server := src.Server{}
-		server.Init("localhost", 54321, "localhost", 12345, "sw", false)
-		go server.Listen(100)
+		server.Init("localhost", portLocal, ipRemote, portRemote, argClock, vlanTag)
+		go server.Listen(uint16(argPktSize))
 		server.Send()
 	}
 }

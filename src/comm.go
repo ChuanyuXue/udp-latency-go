@@ -14,7 +14,8 @@ const (
 	AUG_SIZE          = 4 + 8 + 8 + 8
 	MAX_PKT_SIZE      = 1500
 	MIN_PKT_SIZE      = AUG_SIZE + HEADER_SIZE
-	BUFFER_SIZE       = 1024
+	BUFFER_SIZE       = 1500
+	QUEUE_SIZE        = 1024
 )
 
 func GetTime(devName string) uint64 {
@@ -36,7 +37,6 @@ func GetTime(devName string) uint64 {
 	}
 }
 
-
 func ArrayToString(a []int, delim string) string {
-    return strings.Trim(strings.Replace(fmt.Sprint(a), " ", delim, -1), "[]")
+	return strings.Trim(strings.Replace(fmt.Sprint(a), " ", delim, -1), "[]")
 }

@@ -30,7 +30,7 @@ func (server *Server) Init(ipLocal string, portLocal int, ipRemote string, portR
 	server.PortRemote = portRemote
 	server.DevName = devName
 	server.VlanTag = vlan
-	server.TimeChan = make(chan []byte, BUFFER_SIZE)
+	server.TimeChan = make(chan []byte, QUEUE_SIZE)
 }
 
 func (server *Server) Listen(packetSize uint16) error {

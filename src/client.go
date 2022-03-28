@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"sync"
 )
 
 type Client struct {
@@ -27,6 +28,7 @@ type Client struct {
 	VlanTag bool
 
 	ClobalTime uint64
+	Lock       sync.Mutex
 
 	Close chan bool
 }
@@ -38,11 +40,10 @@ func (client *Client) Init(ipLocal string, portLocal int, ipRemote string, portR
 	client.PortRemote = portRemote
 	client.DevName = devName
 	client.VlanTag = vlan
-	client.Close = make(chan bool, BUFFER_SIZE)
-
+	client.Close = make(chan bool, QUEUE_SIZE)
 }
 
-func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16) error {
+func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16, offSet uint64) error {
 	var index uint32
 	var payloadSize uint16
 	var startTime uint64
@@ -74,7 +75,11 @@ func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16)
 	durationNano = uint64(duration) * 1e9
 	period = (1 / float64(frequency)) * 1e9
 
-	for currentTime < startTime+durationNano || index < totalPackets {
+	for GetTime(client.DevName) < offSet {
+
+	}
+
+	for currentTime < startTime+durationNano || index <= totalPackets {
 		msg := make([]byte, payloadSize)
 		binary.LittleEndian.PutUint32(msg[:4], index)
 		currentTime = GetTime(client.DevName)
@@ -109,7 +114,7 @@ func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16)
 	}
 }
 
-func (client *Client) Listen(bufferSize uint16, savePath string) error {
+func (client *Client) Listen(savePath string) error {
 	var index uint32
 	var currentTime uint64
 	var buf []byte
@@ -123,7 +128,7 @@ func (client *Client) Listen(bufferSize uint16, savePath string) error {
 	defer conn.Close()
 
 	for {
-		buf = make([]byte, bufferSize)
+		buf = make([]byte, BUFFER_SIZE)
 		length, _, err := conn.ReadFromUDP(buf)
 		if err != nil {
 			fmt.Println("[!] Client UDP Error: Unable to read incoming message")
@@ -137,33 +142,29 @@ func (client *Client) Listen(bufferSize uint16, savePath string) error {
 			binary.LittleEndian.Uint64(buf[12:20]),
 			binary.LittleEndian.Uint64(buf[20:28]),
 			currentTime)
-		fmt.Println(index,
-			uint16(length),
-			binary.LittleEndian.Uint64(buf[4:12]),
-			binary.LittleEndian.Uint64(buf[12:20]),
-			binary.LittleEndian.Uint64(buf[20:28]),
-			currentTime)
 		if index == 0 {
 			break
 		}
 	}
 
-	client.save(savePath)
 	client.Close <- true
 	return nil
 }
 
 func (client *Client) log(index uint32, length uint16, t1 uint64, t2 uint64, t3 uint64, t4 uint64) error {
+	client.Lock.Lock()
+	defer client.Lock.Unlock()
 	client.LogIndex = append(client.LogIndex, index)
 	client.LogMsgLen = append(client.LogMsgLen, length)
 	client.LogTimestamp1 = append(client.LogTimestamp1, t1)
 	client.LogTimestamp2 = append(client.LogTimestamp2, t2)
 	client.LogTimestamp3 = append(client.LogTimestamp3, t3)
 	client.LogTimestamp4 = append(client.LogTimestamp4, t4)
+
 	return nil
 }
 
-func (client *Client) save(path string) error {
+func (client *Client) Save(path string) error {
 	csvfile, err := os.Create(path)
 	if err != nil {
 		fmt.Println("[!] CSV Error: Unable to create log file")
