@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/ChuanyuXue/udp-latency-go/src"
 )
@@ -20,7 +22,7 @@ var argSavePath string
 var argFrequency uint64
 var argPktSize uint64
 var argDuration uint64
-var argOffset uint64
+var argOffset string
 
 func init() {
 
@@ -31,7 +33,7 @@ func init() {
 	flag.Uint64Var(&argFrequency, "f", 1, "The frequency in Hz")
 	flag.Uint64Var(&argPktSize, "n", 100, "The packet size in byte")
 	flag.Uint64Var(&argDuration, "t", 10, "The duration in seconds")
-	flag.Uint64Var(&argOffset, "o", 0, "The start time of traffic")
+	flag.StringVar(&argOffset, "o", "0.0", "The start time of traffic")
 
 	flag.BoolVar(&vlanTag, "vlan", false, "Vlan tag")
 	flag.StringVar(&argClock, "clock", "sw", "Clock type: sw -> Linux kernel time, sw0p* -> PTP transparent clock")
@@ -45,7 +47,9 @@ func main() {
 		client := src.Client{}
 		client.Init("localhost", portLocal, ipRemote, portRemote, argClock, vlanTag)
 		go client.Listen(argSavePath)
-		client.Send(uint16(argFrequency), uint16(argPktSize), uint16(argDuration), argOffset)
+		sec, _ := strconv.ParseUint(strings.Split(argOffset, ".")[0], 10, 64)
+		nanosec, _ := strconv.ParseUint(strings.Split(argOffset, ".")[1], 10, 64)
+		client.Send(uint16(argFrequency), uint16(argPktSize), uint16(argDuration), sec*1e9+nanosec)
 		client.Save(argSavePath)
 	}
 
