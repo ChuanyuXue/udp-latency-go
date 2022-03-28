@@ -70,7 +70,7 @@ func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16,
 	}
 
 	index = 1
-	startTime = GetTime(client.DevName)
+	startTime = offSet
 	totalPackets = uint32(frequency) * uint32(duration)
 	durationNano = uint64(duration) * 1e9
 	period = (1 / float64(frequency)) * 1e9
