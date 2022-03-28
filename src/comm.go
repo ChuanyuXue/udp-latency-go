@@ -17,7 +17,7 @@ const (
 	BUFFER_SIZE       = 1024
 )
 
-func getTime(devName string) uint64 {
+func GetTime(devName string) uint64 {
 	if devName != "sw" {
 		path := fmt.Sprintf("/sys/class/net/%s/ieee8021ST/CurrentTime", devName)
 		timeCur, err := os.ReadFile(path)
@@ -34,4 +34,9 @@ func getTime(devName string) uint64 {
 	} else {
 		return uint64(time.Now().UnixNano())
 	}
+}
+
+
+func ArrayToString(a []int, delim string) string {
+    return strings.Trim(strings.Replace(fmt.Sprint(a), " ", delim, -1), "[]")
 }

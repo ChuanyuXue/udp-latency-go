@@ -2,9 +2,11 @@ package src
 
 import (
 	"encoding/binary"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 )
 
@@ -67,16 +69,15 @@ func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16)
 	}
 
 	index = 1
-	startTime = getTime(client.DevName)
+	startTime = GetTime(client.DevName)
 	totalPackets = uint32(frequency) * uint32(duration)
 	durationNano = uint64(duration) * 1e9
-	period = 1 / float64(frequency)
+	period = (1 / float64(frequency)) * 1e9
 
-	var msg []byte
 	for currentTime < startTime+durationNano || index < totalPackets {
-		msg = make([]byte, payloadSize)
+		msg := make([]byte, payloadSize)
 		binary.LittleEndian.PutUint32(msg[:4], index)
-		currentTime = getTime(client.DevName)
+		currentTime = GetTime(client.DevName)
 		binary.LittleEndian.PutUint64(msg[4:12], currentTime) // T1
 		_, err = conn.Write(msg)
 		if err != nil {
@@ -86,22 +87,26 @@ func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16)
 		index += 1
 
 		currentTime += uint64(period)
-		for getTime(client.DevName) < currentTime {
+		for GetTime(client.DevName) < currentTime {
 
 		}
 	}
 
-	for len(client.Close) == 0 {
-		msg = make([]byte, 4)
-		binary.LittleEndian.PutUint32(msg[:4], 0)
-		_, err := conn.Write(msg)
-		if err != nil {
-			fmt.Println("[!] Client UDP Error: Unable to send terminating message")
-			return err
+	for {
+		select {
+		case <-client.Close:
+			return nil
+		default:
+			msg := make([]byte, 4)
+			binary.LittleEndian.PutUint32(msg[:4], 0)
+			conn.Write(msg)
+			// _, err := conn.Write(msg)
+			// if err != nil {
+			// 	fmt.Println("[!] Client UDP Error: Unable to send terminating message")
+			// 	return err
+			// }
 		}
 	}
-
-	return nil
 }
 
 func (client *Client) Listen(bufferSize uint16, savePath string) error {
@@ -124,9 +129,15 @@ func (client *Client) Listen(bufferSize uint16, savePath string) error {
 			fmt.Println("[!] Client UDP Error: Unable to read incoming message")
 			fmt.Println(err)
 		}
-		currentTime = getTime(client.DevName)
+		currentTime = GetTime(client.DevName)
 		index = binary.LittleEndian.Uint32(buf[:4])
 		go client.log(index,
+			uint16(length),
+			binary.LittleEndian.Uint64(buf[4:12]),
+			binary.LittleEndian.Uint64(buf[12:20]),
+			binary.LittleEndian.Uint64(buf[20:28]),
+			currentTime)
+		fmt.Println(index,
 			uint16(length),
 			binary.LittleEndian.Uint64(buf[4:12]),
 			binary.LittleEndian.Uint64(buf[12:20]),
@@ -137,6 +148,7 @@ func (client *Client) Listen(bufferSize uint16, savePath string) error {
 		}
 	}
 
+	client.save(savePath)
 	client.Close <- true
 	return nil
 }
@@ -151,10 +163,29 @@ func (client *Client) log(index uint32, length uint16, t1 uint64, t2 uint64, t3 
 	return nil
 }
 
-func (client *Client) evaluate() error {
-	return nil
-}
+func (client *Client) save(path string) error {
+	csvfile, err := os.Create(path)
+	if err != nil {
+		fmt.Println("[!] CSV Error: Unable to create log file")
+		return err
+	}
+	wr := csv.NewWriter(csvfile)
+	defer wr.Flush()
 
-func (client *Client) save() error {
+	for i, _ := range client.LogIndex {
+		var row []string
+		row = append(row, strconv.FormatUint(uint64(client.LogIndex[i]), 10))
+		row = append(row, strconv.FormatUint(uint64(client.LogMsgLen[i]), 10))
+		row = append(row, strconv.FormatUint(uint64(client.LogTimestamp1[i]), 10))
+		row = append(row, strconv.FormatUint(uint64(client.LogTimestamp2[i]), 10))
+		row = append(row, strconv.FormatUint(uint64(client.LogTimestamp3[i]), 10))
+		row = append(row, strconv.FormatUint(uint64(client.LogTimestamp4[i]), 10))
+		err = wr.Write(row)
+		if err != nil {
+			fmt.Println("[!] CSV Error: Error in writing record to file")
+			return err
+		}
+	}
+
 	return nil
 }

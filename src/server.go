@@ -54,7 +54,7 @@ func (server *Server) Listen(packetSize uint16) error {
 	for {
 		msg = make([]byte, packetSize)
 		_, _, err := conn.ReadFromUDP(msg)
-		currentTime = getTime(server.DevName)
+		currentTime = GetTime(server.DevName)
 		if err != nil {
 			fmt.Println("[!] Server UDP Error: Unable to read incoming message")
 			return err
@@ -85,11 +85,11 @@ func (server *Server) Send() error {
 
 	for {
 		msg = <-server.TimeChan
-		currentTime = getTime(server.DevName)
+		currentTime = GetTime(server.DevName)
 		binary.LittleEndian.PutUint64(msg[20:28], currentTime) // T3
 		_, err = conn.Write(msg)
 		if err != nil {
-			fmt.Println("[!] Client UDP Error: Unable to send message")
+			fmt.Println("[!] Server UDP Error: Unable to send message")
 			return err
 		}
 
