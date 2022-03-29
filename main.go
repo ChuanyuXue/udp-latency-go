@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -54,7 +53,6 @@ func main() {
 	}
 
 	if argType == "s" {
-		fmt.Println("start server")
 		server := src.Server{}
 		server.Init("localhost", portLocal, ipRemote, portRemote, argClock, vlanTag)
 		go server.Listen(uint16(argPktSize))

@@ -48,6 +48,7 @@ func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16,
 	var payloadSize uint16
 	var startTime uint64
 	var currentTime uint64
+	var expectedTime uint64
 	var totalPackets uint32
 	var durationNano uint64
 	var period float64
@@ -71,6 +72,7 @@ func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16,
 
 	index = 1
 	startTime = offSet
+	expectedTime = offSet
 	totalPackets = uint32(frequency) * uint32(duration)
 	durationNano = uint64(duration) * 1e9
 	period = (1 / float64(frequency)) * 1e9
@@ -82,19 +84,22 @@ func (client *Client) Send(frequency uint16, packetSize uint16, duration uint16,
 	for currentTime < startTime+durationNano || index <= totalPackets {
 		msg := make([]byte, payloadSize)
 		binary.LittleEndian.PutUint32(msg[:4], index)
+
 		currentTime = GetTime(client.DevName)
+		for currentTime < expectedTime {
+			currentTime = GetTime(client.DevName)
+		}
+
 		binary.LittleEndian.PutUint64(msg[4:12], currentTime) // T1
 		_, err = conn.Write(msg)
 		if err != nil {
 			fmt.Println("[!] Client UDP Error: Unable to send message")
 			return err
 		}
+
 		index += 1
+		expectedTime += uint64(period)
 
-		currentTime += uint64(period)
-		for GetTime(client.DevName) < currentTime {
-
-		}
 	}
 
 	for {
